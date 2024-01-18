@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
 const bodyParser = require("body-parser");
+const nodemailer = require("nodemailer");
 
 const User = require("./models/User");
 const Admin = require("./models/Admin");
@@ -16,52 +17,98 @@ app.use(bodyParser.json());
 
 
 mongoose
-  .connect("mongodb+srv://GVPRENEUR:GVPRENEUR@gvpreneur.tqkley3.mongodb.net/", {
+  .connect("mongodb+srv://GVPRENEUR:GVPRENEUR@gvpreneur.ejmi6eq.mongodb.net/", {
     useNewUrlParser: true,
   })
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.error("Could not connect to MongoDB", err));
-  
-  app.post("/api/register", async (req, res) => {
-    const { username, email, password, address, mobile, role} = req.body;
-   
-    if (role === "admin") {
-      const adminExists = await Admin.findOne({ username });
-      if (adminExists) {
-        return res.status(400).send({ message: "admin already exists" });
+
+  const generateOtp = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+  };
+
+  const transporter = nodemailer.createTransport({
+           host: 'smtp.gmail.com',
+           port: 587,
+           auth: {
+             user: process.env.EMAIL_USER, 
+             pass: process.env.EMAIL_PASSWORD 
+           }
+   })
+
+
+app.post("/api/register", async (req, res) => {
+  const { username, email, password, address, mobile, role } = req.body;
+
+  try {
+      let existingUser;
+      if (role === "admin") {
+          existingUser = await Admin.findOne({ username });
+          if (existingUser) {
+              return res.status(400).send({ message: "Admin already exists" });
+          }
+
+          const admin = new Admin({
+              username,
+              email,
+              mobile,
+              password,
+              address,
+          });
+
+          await admin.save();
+          res.status(201).send({ message: "Admin created successfully" });
+      } else if (role === "user") {
+          existingUser = await User.findOne({ username });
+          if (existingUser) {
+              return res.status(400).send({ message: "Email already exists" });
+          }
+
+          const user = new User({
+              username,
+              email,
+              mobile,
+              password,
+              address,
+          });
+
+          await user.save();
+          res.status(201).send({ message: "User created successfully" });
+
+           // Send test email after successful registration
+        const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: req.body.email,
+        subject: 'Checking test message',
+        html: '<h4>This is a test message</h4>'
+        };
+
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log("Test message sent: %s", info.messageId);
       }
-      const admin = new Admin({
-        username,
-        email,
-        mobile,
-        password,
-        address,
-      });
-      try {
-        await admin.save();
-        res.status(201).send({ message: "Admin created successfully" });
-      } catch (err) {
-        res.status(400).send({ message: "Admin creation failed", error: err });
-      }
-    } else if (role === "user") {
-      const userExists = await User.findOne({ username });
-      if (userExists) {
-        return res.status(400).send({ message: "Username already exists" });
-      }
-      const user = new User({
-        username,
-        email,
-        mobile,
-        password,
-        address,
-      });
-      try {
-        await user.save();
-        res.status(201).send({ message: "User created successfully" });
-      } catch (err) {
-        res.status(400).send({ message: "User creation failed", error: err });
-      }
-    }
-  });
+     
+
+  } catch (err) {
+      res.status(400).send({ message: "Registration failed", error: err });
+  }
+});
+
+
+ app.post("/api/login", async (req,res) =>{
+  const { email, password} = req.body;
+  let user;
+  user = await User.findOne({ email });
+  if (!user) {
+    return res.status(401).send({ message: "Username or password is incorrect" });
+  }
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    return res.status(401).send({ message: "Username or password is incorrect" });
+  }
+  if (!user.confirmed) {  
+    return res.status(401).send({ message: "confirmation is incorrect" });
+  }
+ })
 
 app.listen(3005, () => console.log("Server listening on port 3005"));

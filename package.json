@@ -9,7 +9,7 @@
     "dev": "nodemon app.js"
   },
   "dependencies": {
-    "bcrypt": "^5.1.0",
+    "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
@@ -20,6 +20,7 @@
     "mongodb": "^6.3.0",
     "mongoose": "^6.10.0",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.8",
     "nodemon": "^2.0.20"
   }
 }
