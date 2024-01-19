@@ -24,7 +24,7 @@ mongoose
   .catch((err) => console.error("Could not connect to MongoDB", err));
 
   const generateOtp = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+    return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
   const transporter = nodemailer.createTransport({
@@ -39,7 +39,7 @@ mongoose
 
 app.post("/api/register", async (req, res) => {
   const { username, email, password, address, mobile, role } = req.body;
-
+  
   try {
       let existingUser;
       if (role === "admin") {
@@ -64,6 +64,8 @@ app.post("/api/register", async (req, res) => {
               return res.status(400).send({ message: "Email already exists" });
           }
 
+          const otp = generateOtp();
+
           const user = new User({
               username,
               email,
@@ -72,24 +74,21 @@ app.post("/api/register", async (req, res) => {
               address,
           });
 
-          await user.save();
           res.status(201).send({ message: "User created successfully" });
 
-           // Send test email after successful registration
         const mailOptions = {
         from: process.env.EMAIL_USER,
         to: req.body.email,
-        subject: 'Checking test message',
-        html: '<h4>This is a test message</h4>'
+        subject: 'Your OTP for GVPRENEUR WEBSITE',
+        html: `<p>Your OTP for registration is: <strong>${otp}</strong></p>`,
         };
 
     const info = await transporter.sendMail(mailOptions);
 
     console.log("Test message sent: %s", info.messageId);
       }
-     
-
   } catch (err) {
+    console.error("Registration failed", err);
       res.status(400).send({ message: "Registration failed", error: err });
   }
 });
