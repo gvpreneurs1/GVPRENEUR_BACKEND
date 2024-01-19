@@ -64,8 +64,6 @@ app.post("/api/register", async (req, res) => {
               return res.status(400).send({ message: "Email already exists" });
           }
 
-          const otp = generateOtp();
-
           const user = new User({
               username,
               email,
@@ -74,22 +72,37 @@ app.post("/api/register", async (req, res) => {
               address,
           });
 
-          res.status(201).send({ message: "User created successfully" });
 
-        const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: req.body.email,
-        subject: 'Your OTP for GVPRENEUR WEBSITE',
-        html: `<p>Your OTP for registration is: <strong>${otp}</strong></p>`,
-        };
 
-    const info = await transporter.sendMail(mailOptions);
-
-    console.log("Test message sent: %s", info.messageId);
       }
   } catch (err) {
     console.error("Registration failed", err);
       res.status(400).send({ message: "Registration failed", error: err });
+  }
+});
+
+app.post("/api/send-otp", async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Generate OTP for the first-time registration
+    const otp = generateOtp();
+    // Send OTP via email
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Your OTP for GVPRENEUR WEBSITE',
+      html: `<p>Your OTP for registration is: <strong>${otp}</strong></p>`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("OTP message sent: %s", info.messageId);
+
+    res.status(200).json({ otp, message: "OTP has been sent successfully" });
+  } catch (err) {
+
+    console.error("Sending OTP failed", err);
+    res.status(500).send({ message: "Sending OTP failed", error: err });
   }
 });
 
