@@ -6,6 +6,7 @@ const cors = require("cors");
 require("dotenv").config();
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
+const axios = require('axios');
 
 const User = require("./models/User");
 const Admin = require("./models/Admin");
@@ -17,7 +18,7 @@ app.use(bodyParser.json());
 
 
 mongoose
-  .connect("mongodb+srv://GVPRENEUR:GVPRENEUR@gvpreneur.ejmi6eq.mongodb.net/", {
+  .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
   })
   .then(() => console.log("Connected to MongoDB"))
@@ -39,7 +40,7 @@ mongoose
 
 app.post("/api/register", async (req, res) => {
   const { username, email, password, address, mobile, role } = req.body;
-  
+
   try {
       let existingUser;
       if (role === "admin") {
@@ -214,7 +215,35 @@ app.post("/api/login", async (req,res) =>{
     });
     res.status(201).send({ accessToken, adminId: user._id, message: "admin logged in successfully" });
   }
+ });
 
- })
+app.post("/api/make-payment", async (req, res) => {
+  const apiKey = process.env.KHALTI_API_KEY; // Get the API key from your environment variables
+
+  const apiUrl = 'https://a.khalti.com/api/v2/epayment/initiate/';
+
+  const requestBody = {
+      return_url: req.body.return_url,
+      website_url: req.body.website_url,
+      amount: req.body.amount * 100,
+      purchase_order_id: req.body.purchase_order_id,
+      purchase_order_name: req.body.purchase_order_name
+  };
+  console.log(requestBody);
+  const headers = {
+      'Authorization': `${apiKey}`,
+      'Content-Type': 'application/json'
+  };
+  try {
+      const response = await axios.post(apiUrl, requestBody, { headers });
+      console.log('Khalti API response:', response.data);
+      res.status(200).json(response.data);
+      console.log(response.data)
+  } catch (error) {
+      console.error('Error making Khalti API request:', error.message);
+      res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 
 app.listen(3005, () => console.log("Server listening on port 3005"));
