@@ -8,8 +8,13 @@ const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const axios = require('axios');
 
+const crypto = require('crypto');
+const sha256 = crypto.createHash('sha256');
+const hmacSHA512 = crypto.createHmac('sha512', 'your-secret-key');
+
 const User = require("./models/User");
 const Admin = require("./models/Admin");
+const Course = require("./models/Course");
 
 const app = express();
 app.use(express.json());
@@ -218,14 +223,14 @@ app.post("/api/login", async (req,res) =>{
  });
 
 app.post("/api/make-payment", async (req, res) => {
-  const apiKey = process.env.KHALTI_API_KEY; // Get the API key from your environment variables
+  const apiKey = process.env.KHALTI_API_KEY; 
 
   const apiUrl = 'https://a.khalti.com/api/v2/epayment/initiate/';
 
   const requestBody = {
       return_url: req.body.return_url,
       website_url: req.body.website_url,
-      amount: req.body.amount * 100,
+      amount: req.body.amount,
       purchase_order_id: req.body.purchase_order_id,
       purchase_order_name: req.body.purchase_order_name
   };
@@ -245,5 +250,161 @@ app.post("/api/make-payment", async (req, res) => {
   }
 });
 
+
+///create a function with crypto js for esewa
+const createSignature = (message) => {
+  const secret = "8gBm/:&EnhH.1/q";
+
+  const hmac = crypto.createHmac("sha256", secret);
+  hmac.update(message);
+
+  //Get the digest in base64 format
+  const hashInBase64 = hmac.digest("base64");
+  console.log(hashInBase64)
+  return hashInBase64;
+}
+
+app.post("/api/e-sewa", async (req, res ) => {
+  try {
+    const signature = createSignature (
+    ` total_amount= 100, transaction_uuid="ab14a8f2b02c3",product_code="EPAYTEST" `
+    );
+    console.log(total_amount)
+    const formData = {
+      amount: "100",
+      failure_url: "https://google.com",
+      product_delivery_charge: "0" ,
+      product_service_charge:  "0" ,
+      product_code:  "EPAYTEST" ,
+      signature :  signature,
+      signed_field_names : "total_amount,transaction_uuid,product_code",
+      success_url : "https://esewa.com.np" ,
+      tax_amount :  "0",
+      total_amount :  "100" ,
+      transaction_uuid :  "ab14a8f2b02c3"
+    };
+    console.log(formData)
+    res.status(200).json({message: "Order created successfully"}, formData)
+  }
+  catch (err){
+    res.status(400).json({error: err?.message || "no orders found"})
+
+  }
+})
+
+/// create course from admin
+// Route to create a new course (requires admin authentication)
+ app.post('/api/create-course', authenticateAdminToken, async (req, res) => {
+    try {
+      const { title, description, link, startDate, endDate, speaker, host } = req.body;
+
+      const newCourse = new Course({
+        title,
+        description,
+        link,
+        startDate,
+        endDate,
+        speaker,
+        host,
+        isLocked: true, /// By default, new courses are locked until manually unlocked
+      });
+
+      /// Save the course to the database
+      await newCourse.save();
+
+      const adminId = req.admin.adminId;
+      await Admin.findByIdAndUpdate(adminId, { $push: { createdCourses: newCourse._id } });
+
+      res.status(201).json({ message: 'Course created successfully.', courseId: newCourse._id });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Internal server error.' });
+    }
+  });
+
+  app.delete('/api/delete-course/:courseId', authenticateAdminToken, async (req, res) => {
+    try {
+      const courseId = req.params.courseId;
+  
+      // Check if the course exists
+      const course = await Course.findById(courseId);
+      if (!course) {
+        return res.status(404).json({ message: 'Course not found.' });
+      }
+  
+      // Delete the course
+      await Course.findByIdAndDelete(courseId);
+  
+      // Remove the course ID from the admin's createdCourses array
+      const adminId = req.admin.adminId;
+      await Admin.findByIdAndUpdate(adminId, { $pull: { createdCourses: courseId } });
+  
+      res.status(200).json({ message: 'Course deleted successfully.' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Internal server error.' });
+    }
+  });
+
+  app.put('/api/edit-course/:courseId', authenticateAdminToken, async (req, res) => {
+    try {
+      const courseId = req.params.courseId;
+  
+      // Check if the course exists
+      const course = await Course.findById(courseId);
+      if (!course) {
+        return res.status(404).json({ message: 'Course not found.' });
+      }
+  
+      // Update the course with the new data
+      const { title, description, link, startDate, endDate, speaker, host } = req.body;
+      course.title = title;
+      course.description = description;
+      course.link = link;
+      course.startDate = startDate;
+      course.endDate = endDate;
+      course.speaker = speaker;
+      course.host = host;
+  
+      // Save the updated course
+      await course.save();
+  
+      res.status(200).json({ message: 'Course updated successfully.', courseId: course._id });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Internal server error.' });
+    }
+  });
+
+  app.get('/api/get-course/:courseId', async (req, res) => {
+    try {
+      const courseId = req.params.courseId;
+  
+      // Check if the course exists
+      const course = await Course.findById(courseId).populate('attendees');
+  
+      if (!course) {
+        return res.status(404).json({ message: 'Course not found.' });
+      }
+  
+      // Sending course details in the response
+      res.status(200).json({
+        message: 'Course details retrieved successfully.',
+        course: {
+          title: course.title,
+          description: course.description,
+          link: course.link,
+          startDate: course.startDate,
+          endDate: course.endDate,
+          speaker: course.speaker,
+          host: course.host,
+          attendees: course.attendees,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Internal server error.' });
+    }
+  });
 
 app.listen(3005, () => console.log("Server listening on port 3005"));
