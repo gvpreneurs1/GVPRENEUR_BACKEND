@@ -221,7 +221,8 @@ app.post("/api/login", async (req,res) =>{
     res.status(201).send({ accessToken, adminId: user._id, message: "admin logged in successfully" });
   }
  });
-
+ 
+///khalti API incomplete
 app.post("/api/make-payment", async (req, res) => {
   const apiKey = process.env.KHALTI_API_KEY; 
 
@@ -294,7 +295,7 @@ app.post("/api/e-sewa", async (req, res ) => {
 
 /// create course from admin
 // Route to create a new course (requires admin authentication)
- app.post('/api/create-course', authenticateAdminToken, async (req, res) => {
+ app.post('/api/create-course', async (req, res) => {
     try {
       const { title, description, link, startDate, endDate, speaker, host } = req.body;
 
@@ -311,10 +312,6 @@ app.post("/api/e-sewa", async (req, res ) => {
 
       /// Save the course to the database
       await newCourse.save();
-
-      const adminId = req.admin.adminId;
-      await Admin.findByIdAndUpdate(adminId, { $push: { createdCourses: newCourse._id } });
-
       res.status(201).json({ message: 'Course created successfully.', courseId: newCourse._id });
     } catch (error) {
       console.error(error);
@@ -400,6 +397,96 @@ app.post("/api/e-sewa", async (req, res ) => {
           host: course.host,
           attendees: course.attendees,
         },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Internal server error.' });
+    }
+  });
+
+  app.get('/api/get-course/:courseId', async (req, res) => {
+    try {
+      const courseId = req.params.courseId;
+  
+      // Check if the course exists
+      const course = await Course.findById(courseId).populate('attendees');
+  
+      if (!course) {
+        return res.status(404).json({ message: 'Course not found.' });
+      }
+  
+      // Sending course details in the response
+      res.status(200).json({
+        message: 'Course details retrieved successfully.',
+        course: {
+          title: course.title,
+          description: course.description,
+          link: course.link,
+          startDate: course.startDate,
+          endDate: course.endDate,
+          speaker: course.speaker,
+          host: course.host,
+          attendees: course.attendees,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Internal server error.' });
+    }
+  });
+   
+  app.get('/api/get-course/:courseId', async (req, res) => {
+    try {
+      const courseId = req.params.courseId;
+  
+      // Check if the course exists
+      const course = await Course.findById(courseId).populate('attendees');
+  
+      if (!course) {
+        return res.status(404).json({ message: 'Course not found.' });
+      }
+  
+      // Sending course details in the response
+      res.status(200).json({
+        message: 'Course details retrieved successfully.',
+        course: {
+          title: course.title,
+          description: course.description,
+          link: course.link,
+          startDate: course.startDate,
+          endDate: course.endDate,
+          speaker: course.speaker,
+          host: course.host,
+          attendees: course.attendees,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Internal server error.' });
+    }
+  });
+
+  app.get('/api/get-course/', async (req, res) => {
+    try {
+      const course = await Course.find({});
+  
+      if (!course) {
+        return res.status(404).json({ message: 'Course not found.' });
+      }
+  
+      // Sending course details in the response
+      res.status(201).json({
+        message: 'Course details retrieved successfully.',
+        course: course.map(course => ({
+          title: course.title,
+          description: course.description,
+          link: course.link,
+          startDate: course.startDate,
+          endDate: course.endDate,
+          speaker: course.speaker,
+          host: course.host,
+          attendees: course.attendees,
+        }))
       });
     } catch (error) {
       console.error(error);
