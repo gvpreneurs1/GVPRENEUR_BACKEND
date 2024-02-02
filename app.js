@@ -295,7 +295,7 @@ app.post("/api/e-sewa", async (req, res ) => {
 
 /// create course from admin
 // Route to create a new course (requires admin authentication)
- app.post('/api/create-course', async (req, res) => {
+ app.post('/api/create-course', authenticateAdminToken, async (req, res) => {
     try {
       const { title, description, link, startDate, endDate, speaker, host } = req.body;
 
@@ -323,18 +323,12 @@ app.post("/api/e-sewa", async (req, res ) => {
     try {
       const courseId = req.params.courseId;
   
-      // Check if the course exists
       const course = await Course.findById(courseId);
       if (!course) {
         return res.status(404).json({ message: 'Course not found.' });
       }
   
-      // Delete the course
       await Course.findByIdAndDelete(courseId);
-  
-      // Remove the course ID from the admin's createdCourses array
-      const adminId = req.admin.adminId;
-      await Admin.findByIdAndUpdate(adminId, { $pull: { createdCourses: courseId } });
   
       res.status(200).json({ message: 'Course deleted successfully.' });
     } catch (error) {
@@ -347,13 +341,11 @@ app.post("/api/e-sewa", async (req, res ) => {
     try {
       const courseId = req.params.courseId;
   
-      // Check if the course exists
       const course = await Course.findById(courseId);
       if (!course) {
         return res.status(404).json({ message: 'Course not found.' });
       }
   
-      // Update the course with the new data
       const { title, description, link, startDate, endDate, speaker, host } = req.body;
       course.title = title;
       course.description = description;
@@ -363,110 +355,16 @@ app.post("/api/e-sewa", async (req, res ) => {
       course.speaker = speaker;
       course.host = host;
   
-      // Save the updated course
       await course.save();
   
-      res.status(200).json({ message: 'Course updated successfully.', courseId: course._id });
+      res.status(201).json({ message: 'Course updated successfully.', courseId: course._id });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Internal server error.' });
     }
   });
 
-  app.get('/api/get-course/:courseId', async (req, res) => {
-    try {
-      const courseId = req.params.courseId;
-  
-      // Check if the course exists
-      const course = await Course.findById(courseId).populate('attendees');
-  
-      if (!course) {
-        return res.status(404).json({ message: 'Course not found.' });
-      }
-  
-      // Sending course details in the response
-      res.status(200).json({
-        message: 'Course details retrieved successfully.',
-        course: {
-          title: course.title,
-          description: course.description,
-          link: course.link,
-          startDate: course.startDate,
-          endDate: course.endDate,
-          speaker: course.speaker,
-          host: course.host,
-          attendees: course.attendees,
-        },
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Internal server error.' });
-    }
-  });
-
-  app.get('/api/get-course/:courseId', async (req, res) => {
-    try {
-      const courseId = req.params.courseId;
-  
-      // Check if the course exists
-      const course = await Course.findById(courseId).populate('attendees');
-  
-      if (!course) {
-        return res.status(404).json({ message: 'Course not found.' });
-      }
-  
-      // Sending course details in the response
-      res.status(200).json({
-        message: 'Course details retrieved successfully.',
-        course: {
-          title: course.title,
-          description: course.description,
-          link: course.link,
-          startDate: course.startDate,
-          endDate: course.endDate,
-          speaker: course.speaker,
-          host: course.host,
-          attendees: course.attendees,
-        },
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Internal server error.' });
-    }
-  });
-   
-  app.get('/api/get-course/:courseId', async (req, res) => {
-    try {
-      const courseId = req.params.courseId;
-  
-      // Check if the course exists
-      const course = await Course.findById(courseId).populate('attendees');
-  
-      if (!course) {
-        return res.status(404).json({ message: 'Course not found.' });
-      }
-  
-      // Sending course details in the response
-      res.status(200).json({
-        message: 'Course details retrieved successfully.',
-        course: {
-          title: course.title,
-          description: course.description,
-          link: course.link,
-          startDate: course.startDate,
-          endDate: course.endDate,
-          speaker: course.speaker,
-          host: course.host,
-          attendees: course.attendees,
-        },
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Internal server error.' });
-    }
-  });
-
-  app.get('/api/get-course/', async (req, res) => {
+  app.get('/api/get-course/', authenticateAdminToken, async (req, res) => {
     try {
       const course = await Course.find({});
   
@@ -474,10 +372,10 @@ app.post("/api/e-sewa", async (req, res ) => {
         return res.status(404).json({ message: 'Course not found.' });
       }
   
-      // Sending course details in the response
       res.status(201).json({
         message: 'Course details retrieved successfully.',
         course: course.map(course => ({
+          id: course._id,
           title: course.title,
           description: course.description,
           link: course.link,
@@ -493,5 +391,36 @@ app.post("/api/e-sewa", async (req, res ) => {
       res.status(500).json({ message: 'Internal server error.' });
     }
   });
+  
+  app.get('/api/get-course/:courseId', authenticateAdminToken , async (req, res) => {
+    try {
+      const courseId = req.params.courseId;
+  
+      const course = await Course.findById(courseId).populate('attendees');
+  
+      if (!course) {
+        return res.status(404).json({ message: 'Course not found.' });
+      }
+  
+      res.status(201).json({
+        message: 'Course details retrieved successfully.',
+        course: {
+          title: course.title,
+          description: course.description,
+          link: course.link,
+          startDate: course.startDate,
+          endDate: course.endDate,
+          speaker: course.speaker,
+          host: course.host,
+          attendees: course.attendees,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Internal server error.' });
+    }
+  });
+
+
 
 app.listen(3005, () => console.log("Server listening on port 3005"));
