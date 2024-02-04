@@ -165,6 +165,40 @@ const authenticateAdminToken = async (req, res, next) => {
   }
 };
 
+
+const authenticateEitherToken = async (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).send({ message: "No access token provided" });
+  }
+
+  try {
+    // Try decoding as a user token
+    const decodedUserToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    const user = await User.findOne({ _id: decodedUserToken.userId });
+    if (user) {
+      req.user = { userId: user._id, username: user.username };
+      return next();
+    }
+
+    // If decoding as a user token fails, try decoding as an admin token
+    const decodedAdminToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    const admin = await Admin.findOne({ _id: decodedAdminToken.adminId });
+    if (admin) {
+      req.admin = { adminId: admin._id, username: admin.username };
+      return next();
+    }
+
+    // If neither user nor admin token is valid
+    return res.status(401).send({ message: "Invalid token" });
+  } catch (err) {
+    return res.status(403).send({ message: "Invalid token" });
+  }
+};
+
+
 app.post('/api/token', (req, res) => {
   const refreshToken = req.cookies.refreshToken;
   if (!refreshToken) {
@@ -392,7 +426,7 @@ app.post("/api/e-sewa", async (req, res ) => {
     }
   });
   
-  app.get('/api/get-course/:courseId', authenticateAdminToken , async (req, res) => {
+  app.get('/api/get-course/:courseId', authenticateEitherToken, async (req, res) => {
     try {
       const courseId = req.params.courseId;
   
