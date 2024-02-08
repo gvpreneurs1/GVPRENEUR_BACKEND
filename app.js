@@ -15,6 +15,7 @@ const hmacSHA512 = crypto.createHmac('sha512', 'your-secret-key');
 const User = require("./models/User");
 const Admin = require("./models/Admin");
 const Course = require("./models/Course");
+const Notification = require("./models/Notification");
 
 const app = express();
 app.use(express.json());
@@ -364,7 +365,7 @@ app.post("/api/e-sewa", async (req, res ) => {
   
       await Course.findByIdAndDelete(courseId);
   
-      res.status(200).json({ message: 'Course deleted successfully.' });
+      res.status(201).json({ message: 'Course deleted successfully.' });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Internal server error.' });
@@ -398,7 +399,7 @@ app.post("/api/e-sewa", async (req, res ) => {
     }
   });
 
-  app.get('/api/get-course/', authenticateAdminToken, async (req, res) => {
+  app.get('/api/get-course/', authenticateEitherToken, async (req, res) => {
     try {
       const course = await Course.find({});
   
@@ -456,5 +457,60 @@ app.post("/api/e-sewa", async (req, res ) => {
   });
 
 
+  ///Notification system
+  app.post('/api/send-notification', async (req, res) => {
+    const { adminId, message } = req.body;
+  
+    try {
+      const isAdmin = await Admin.findById(adminId);
+      if (!isAdmin) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+  
+      // Get all users (for simplicity, you might have a different logic)
+      const users = await User.find();
+      // Send a notification to each user
+      const notifications = await Promise.all(
+        users.map(async (user) => {
+          const notification = new Notification({ userId: user._id, message });
+          await notification.save();
+          user.notifications.push(notification);
+          await user.save();
+          return notification;
+        })
+      );
+  
+      res.status(201).json({ success: true, notifications});
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+  
+  app.get('/api/get-notifications/:userId', async (req, res) => {
+    const { userId } = req.params;
 
+    try {
+      // Simulate user authentication (you might have a different method)
+      const user = await User.findById(userId).populate('notifications');
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+  
+      // Extract only the 'message' property from each notification
+      const messages = user.notifications.map(notification => (
+        notification.message));
+      
+      const ID = user.notifications.map(notification => (
+        notification._id
+      ));
+      res.status(200).json({ messages , ID });
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+  
+  app.delete('')
+  
 app.listen(3005, () => console.log("Server listening on port 3005"));

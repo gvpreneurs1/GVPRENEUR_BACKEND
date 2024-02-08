@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   address: { type: String, required: true },
   enrolledCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }],
+  notifications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Notification' }],
+
 });
 
 const User = mongoose.model('User', userSchema);
