@@ -511,6 +511,27 @@ app.post("/api/e-sewa", async (req, res ) => {
     }
   });
   
-  app.delete('')
+
+  app.delete('/api/delete-notifications/:userId/:notificationId', async (req,res) => {
+    const { userId, notificationId } = req.params;
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        res.status(404).json({ message: 'user not found '});
+      }
+      const notification = await Notification.findById(notificationId);
+      if (!notification) {
+        res.status(404).json({ message: 'notification not found'});
+      }
+
+      await Notification.findByIdAndDelete(notificationId);
+
+      res.status(201).json({ message: " Deleted sucessfully"});
+    }
+    catch (error) {
+      console.log(error)
+      res.status(500).json({message: 'Message was not deleted'});
+    }
+  });
   
 app.listen(3005, () => console.log("Server listening on port 3005"));
