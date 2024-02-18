@@ -426,34 +426,37 @@ app.post("/api/e-sewa", async (req, res ) => {
     }
   });
   
-  app.get('/api/get-course/:courseId', authenticateEitherToken, async (req, res) => {
+  app.get('/api/get-course/:id', async (req, res) => {
     try {
-      const courseId = req.params.courseId;
-  
-      const course = await Course.findById(courseId).populate('attendees');
+      const courseId = req.params.id;
+      const course = await Course.findById(courseId).populate('attendees', 'username');
   
       if (!course) {
         return res.status(404).json({ message: 'Course not found.' });
       }
   
+      const courseData = {
+        id: course._id,
+        title: course.title,
+        description: course.description,
+        link: course.link,
+        startDate: course.startDate,
+        endDate: course.endDate,
+        speaker: course.speaker,
+        host: course.host,
+        attendees: course.attendees.map(attendee => attendee.username),
+      };
+  
       res.status(201).json({
         message: 'Course details retrieved successfully.',
-        course: {
-          title: course.title,
-          description: course.description,
-          link: course.link,
-          startDate: course.startDate,
-          endDate: course.endDate,
-          speaker: course.speaker,
-          host: course.host,
-          attendees: course.attendees,
-        },
+        course: courseData,
       });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Internal server error.' });
     }
   });
+  
   
   app.post('/api/add-user-course/:userId/:courseId', async (req, res) => {
     try {
