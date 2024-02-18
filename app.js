@@ -328,8 +328,7 @@ app.post("/api/e-sewa", async (req, res ) => {
   }
 })
 
-/// create course from admin
-// Route to create a new course (requires admin authentication)
+/// Course System
  app.post('/api/create-course', authenticateAdminToken, async (req, res) => {
     try {
       const { title, description, link, startDate, endDate, speaker, host } = req.body;
@@ -399,7 +398,7 @@ app.post("/api/e-sewa", async (req, res ) => {
     }
   });
 
-  app.get('/api/get-course/', authenticateEitherToken, async (req, res) => {
+  app.get('/api/get-course/', async (req, res) => {
     try {
       const course = await Course.find({});
   
@@ -455,11 +454,42 @@ app.post("/api/e-sewa", async (req, res ) => {
       res.status(500).json({ message: 'Internal server error.' });
     }
   });
+  
+  app.post('/api/add-user-course/:userId/:courseId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const courseId = req.params.courseId;
 
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+
+        if (course.attendees.includes(userId)) {
+          return res.status(409).json({ error: 'User is already present'});
+        }
+
+        course.attendees.push(user);
+
+        await course.save();
+
+        res.status(201).json({ message: 'User added to course successfully.', userId: user._id });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error.' });
+    }
+});
+
+  ///Ended Course System
 
   ///Notification system
-  app.post('/api/send-notification', async (req, res) => {
-    const { adminId, message } = req.body;
+  app.post('/api/send-notification', authenticateAdminToken, async (req, res) => {
+    const { adminId, message, title } = req.body;
   
     try {
       const isAdmin = await Admin.findById(adminId);
@@ -472,7 +502,7 @@ app.post("/api/e-sewa", async (req, res ) => {
       // Send a notification to each user
       const notifications = await Promise.all(
         users.map(async (user) => {
-          const notification = new Notification({ userId: user._id, message });
+          const notification = new Notification({ userId: user._id, message, title});
           await notification.save();
           user.notifications.push(notification);
           await user.save();
@@ -491,20 +521,25 @@ app.post("/api/e-sewa", async (req, res ) => {
     const { userId } = req.params;
 
     try {
-      // Simulate user authentication (you might have a different method)
       const user = await User.findById(userId).populate('notifications');
       if (!user) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        return res.status(401).json({ error: 'User not found' });
       }
-  
-      // Extract only the 'message' property from each notification
+
+
       const messages = user.notifications.map(notification => (
         notification.message));
-      
+
+      const title = user.notifications.map(notification => (
+          notification.title));
+
       const ID = user.notifications.map(notification => (
         notification._id
       ));
-      res.status(200).json({ messages , ID });
+
+      const notificationCount = user.notifications.length;
+
+      res.status(201).json({ messages , ID, title, notificationCount });
     } catch (error) {
       console.error('Error fetching notifications:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -523,15 +558,42 @@ app.post("/api/e-sewa", async (req, res ) => {
       if (!notification) {
         res.status(404).json({ message: 'notification not found'});
       }
-
+      
       await Notification.findByIdAndDelete(notificationId);
 
-      res.status(201).json({ message: " Deleted sucessfully"});
+      res.status(201).json({ message: "Deleted sucessfully"});
     }
     catch (error) {
       console.log(error)
       res.status(500).json({message: 'Message was not deleted'});
     }
   });
+
+
+  ///End of notification system
+
+  ///User profile system
+  app.get('/api/get-user/:userId', async (req,res) => {
+    const {userId} = req.params;
+    try{
+      const user = await User.findById(userId);
+      if(!user) {
+        return res.status(404).json( {message:'User not found '});
+      }
+     res.status(201).json({
+      user: {
+        username : user.username,
+        email: user.email,
+        mobile: user.mobile,
+        password: user.password,
+        address: user.address
+      }
+     })
+    }
+    catch(error) {
+      console.log(error)
+      res.status(500).json({ message: 'find the user'})
+    }
+  })
   
 app.listen(3005, () => console.log("Server listening on port 3005"));
