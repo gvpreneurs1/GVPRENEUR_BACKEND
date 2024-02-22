@@ -7,15 +7,15 @@ require("dotenv").config();
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const axios = require('axios');
+const uuid = require('uuid')
 
-const crypto = require('crypto');
-const sha256 = crypto.createHash('sha256');
-const hmacSHA512 = crypto.createHmac('sha512', 'your-secret-key');
+const crypto = require("node:crypto");
 
 const User = require("./models/User");
 const Admin = require("./models/Admin");
 const Course = require("./models/Course");
 const Notification = require("./models/Notification");
+
 
 const app = express();
 app.use(express.json());
@@ -29,6 +29,64 @@ mongoose
   })
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.error("Could not connect to MongoDB", err));
+
+ // blaze-sewa 
+  const { ESEWA_SECRET, ESEWA_LINK } = process.env
+  const SIGNED_FIELDS = ["total_amount", "transaction_uuid", "product_code"]  
+
+  const generateSignature = (message) => {
+   const hash = crypto.createHmac("sha256", ESEWA_SECRET)
+
+   hash.update(message)
+   const hashInBase64 = hash.digest("base64")
+
+   return hashInBase64
+  }
+
+  const checkIfValuesOfSignatureArePresent = (product) => {
+    for (const field of SIGNED_FIELDS) {
+      if (!product[field]) return false
+    }
+  
+    return true
+  }
+
+  const generateSignedInput = (product) => {
+    const signedInputs = SIGNED_FIELDS.map(field => {
+      return `${field}=${product[field]}`
+    })
+  
+    return signedInputs.join(",")
+  }
+
+  app.post("/api/esewa/payload", async (req,res) => {
+    const product = req.body
+
+    product.transaction_uuid = uuid.v4()
+    if (!checkIfValuesOfSignatureArePresent) {
+      return res.status(400).send({ success: false, message: "Values unmet"})
+    }
+
+    const signedInput = generateSignedInput(product)
+
+    product.signature = generateSignature(signedInput)
+    res.status(200).send({ success: true, formData: product, esewaLink: ESEWA_LINK })
+  })
+
+  const decodeBase64ToASCII = (base64Input) => {
+    const decodedValue = Buffer.from(base64Input, 'base64').toString('ascii')
+  
+    return decodedValue
+  }
+
+  app.post("/api/completeOrder/:base64Input", async (req,res) => {
+    const base64Input = req.params.base64Input
+    const decodedInput = decodeBase64ToASCII(base64Input)
+
+    res.status(200).send({ success: true, decodedInput })
+  })
+
+
 
   const generateOtp = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -287,46 +345,6 @@ app.post("/api/make-payment", async (req, res) => {
 });
 
 
-///create a function with crypto js for esewa
-const createSignature = (message) => {
-  const secret = "8gBm/:&EnhH.1/q";
-
-  const hmac = crypto.createHmac("sha256", secret);
-  hmac.update(message);
-
-  //Get the digest in base64 format
-  const hashInBase64 = hmac.digest("base64");
-  console.log(hashInBase64)
-  return hashInBase64;
-}
-
-app.post("/api/e-sewa", async (req, res ) => {
-  try {
-    const signature = createSignature (
-    ` total_amount= 100, transaction_uuid="ab14a8f2b02c3",product_code="EPAYTEST" `
-    );
-    console.log(total_amount)
-    const formData = {
-      amount: "100",
-      failure_url: "https://google.com",
-      product_delivery_charge: "0" ,
-      product_service_charge:  "0" ,
-      product_code:  "EPAYTEST" ,
-      signature :  signature,
-      signed_field_names : "total_amount,transaction_uuid,product_code",
-      success_url : "https://esewa.com.np" ,
-      tax_amount :  "0",
-      total_amount :  "100" ,
-      transaction_uuid :  "ab14a8f2b02c3"
-    };
-    console.log(formData)
-    res.status(200).json({message: "Order created successfully"}, formData)
-  }
-  catch (err){
-    res.status(400).json({error: err?.message || "no orders found"})
-
-  }
-})
 
 /// Course System
  app.post('/api/create-course', authenticateAdminToken, async (req, res) => {
