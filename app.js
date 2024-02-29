@@ -15,7 +15,7 @@ const User = require("./models/User");
 const Admin = require("./models/Admin");
 const Course = require("./models/Course");
 const Notification = require("./models/Notification");
-
+const Message = require("./models/Message");
 
 const app = express();
 app.use(express.json());
@@ -78,6 +78,45 @@ mongoose
   
     return decodedValue
   }
+
+
+  //middleware for sucess eseewa
+  // const handleEsewaSuccess = async (req,res,next) => {
+  //   try {
+  //   const { data } = req.query;
+  //   const decodedData = JSON.parse(
+  //     Buffer.from(data, "base64").toString("utf-8")
+  //   );
+  //   console.log(decodedData);
+
+  //   if (decodedData.status !== "COMPLETE") {
+  //     return res.status(400).json({ messgae: "errror" });
+  //   }
+  //   const message = decodedData.signed_field_names
+  //     .split(",")
+  //     .map((field) => `${field}=${decodedData[field] || ""}`)
+  //     .join(",");
+  //   console.log(message);
+  //   const signature = generateSignature(message);
+
+  //   if (signature !== decodedData.signature) {
+  //     res.status(422).json({ message: "integrity error" });
+  //   }
+  //   next();
+  // } catch (err) {
+  //   console.log(err);
+  //   return res.status(400).json({ error: err?.message || "No Orders found" });
+  // }}
+
+  app.get("/api/esewa-success", async (req, res) => {
+    try {
+      console.log(req.body);
+
+      res.redirect("http://localhost:3000/get-client-course");
+    } catch (err) {
+      return res.status(400).json({ error: err?.message || "No Orders found" });
+    }
+  });
 
   app.post("/api/completeOrder/:base64Input", async (req,res) => {
     const base64Input = req.params.base64Input
@@ -447,7 +486,7 @@ app.post("/api/make-payment", async (req, res) => {
   app.get('/api/get-course/:id', async (req, res) => {
     try {
       const courseId = req.params.id;
-      const course = await Course.findById(courseId).populate('attendees', 'username');
+      const course = await Course.findById(courseId).populate('attendees', 'username email mobile');
   
       if (!course) {
         return res.status(404).json({ message: 'Course not found.' });
@@ -462,7 +501,11 @@ app.post("/api/make-payment", async (req, res) => {
         endDate: course.endDate,
         speaker: course.speaker,
         host: course.host,
-        attendees: course.attendees.map(attendee => attendee.username),
+        attendees: course.attendees.map(attendee => ({
+          username: attendee.username,
+          email: attendee.email,
+          mobile: attendee.mobile,
+          })),
       };
   
       res.status(201).json({
@@ -617,4 +660,33 @@ app.post("/api/make-payment", async (req, res) => {
     }
   })
   
+  //Contact us form
+  app.post('/api/save-message', async (req, res) => {
+    try {
+      const { name, email, message } = req.body;
+  
+      // Validate if required fields are present
+      if (!name || !email || !message) {
+        return res.status(400).json({ error: 'Name, email, and message are required fields' });
+      }
+  
+      // Create a new Message document
+      const newMessage = new Message({
+        name,
+        email,
+        message,
+      });
+  
+      // Save the message to the database
+      await newMessage.save();
+  
+      res.status(201).json({ message: 'Message saved successfully' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+
+
 app.listen(3005, () => console.log("Server listening on port 3005"));
