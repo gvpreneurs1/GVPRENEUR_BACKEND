@@ -108,15 +108,47 @@ mongoose
   //   return res.status(400).json({ error: err?.message || "No Orders found" });
   // }}
 
-  app.get("/api/esewa-success", async (req, res) => {
+  app.get("/api/esewa-success/:userId/:courseId", async (req, res) => {
     try {
       console.log(req.body);
+      const userId = req.params.userId;
+      const courseId = req.params.courseId;
 
-      res.redirect("http://localhost:3000/get-client-course");
+      res.redirect(`http://localhost:3000/CoursePost`);
     } catch (err) {
       return res.status(400).json({ error: err?.message || "No Orders found" });
     }
   });
+
+  app.post('/api/add-user-course/:userId/:courseId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const courseId = req.params.courseId;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+
+        if (course.attendees.includes(userId)) {
+          return res.status(409).json({ error: 'User is already present'});
+        }
+
+        course.attendees.push(user);
+
+        await course.save();
+
+        res.status(201).json({ message: 'User added to course successfully.', userId: user._id });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error.' });
+    }
+});
 
   app.post("/api/completeOrder/:base64Input", async (req,res) => {
     const base64Input = req.params.base64Input
@@ -491,7 +523,6 @@ app.post("/api/make-payment", async (req, res) => {
       if (!course) {
         return res.status(404).json({ message: 'Course not found.' });
       }
-  
       const courseData = {
         id: course._id,
         title: course.title,
@@ -519,35 +550,35 @@ app.post("/api/make-payment", async (req, res) => {
   });
   
   
-  app.post('/api/add-user-course/:userId/:courseId', async (req, res) => {
-    try {
-        const userId = req.params.userId;
-        const courseId = req.params.courseId;
+//   app.post('/api/add-user-course/:userId/:courseId', async (req, res) => {
+//     try {
+//         const userId = req.params.userId;
+//         const courseId = req.params.courseId;
 
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
+//         const user = await User.findById(userId);
+//         if (!user) {
+//             return res.status(404).json({ error: 'User not found' });
+//         }
 
-        const course = await Course.findById(courseId);
-        if (!course) {
-            return res.status(404).json({ error: 'Course not found' });
-        }
+//         const course = await Course.findById(courseId);
+//         if (!course) {
+//             return res.status(404).json({ error: 'Course not found' });
+//         }
 
-        if (course.attendees.includes(userId)) {
-          return res.status(409).json({ error: 'User is already present'});
-        }
+//         if (course.attendees.includes(userId)) {
+//           return res.status(409).json({ error: 'User is already present'});
+//         }
 
-        course.attendees.push(user);
+//         course.attendees.push(user);
 
-        await course.save();
+//         await course.save();
 
-        res.status(201).json({ message: 'User added to course successfully.', userId: user._id });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Internal server error.' });
-    }
-});
+//         res.status(201).json({ message: 'User added to course successfully.', userId: user._id });
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ message: 'Internal server error.' });
+//     }
+// });
 
   ///Ended Course System
 
