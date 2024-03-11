@@ -111,9 +111,6 @@ mongoose
   app.get("/api/esewa-success/:userId/:courseId", async (req, res) => {
     try {
       console.log(req.body);
-      const userId = req.params.userId;
-      const courseId = req.params.courseId;
-
       res.redirect(`http://localhost:3000/CoursePost`);
     } catch (err) {
       return res.status(400).json({ error: err?.message || "No Orders found" });
@@ -514,7 +511,7 @@ app.post("/api/make-payment", async (req, res) => {
       res.status(500).json({ message: 'Internal server error.' });
     }
   });
-  
+
   app.get('/api/get-course/:id', async (req, res) => {
     try {
       const courseId = req.params.id;
@@ -523,6 +520,7 @@ app.post("/api/make-payment", async (req, res) => {
       if (!course) {
         return res.status(404).json({ message: 'Course not found.' });
       }
+  
       const courseData = {
         id: course._id,
         title: course.title,
@@ -533,10 +531,11 @@ app.post("/api/make-payment", async (req, res) => {
         speaker: course.speaker,
         host: course.host,
         attendees: course.attendees.map(attendee => ({
+          id: attendee._id, 
           username: attendee.username,
           email: attendee.email,
           mobile: attendee.mobile,
-          })),
+        })),
       };
   
       res.status(201).json({
@@ -550,36 +549,6 @@ app.post("/api/make-payment", async (req, res) => {
   });
   
   
-//   app.post('/api/add-user-course/:userId/:courseId', async (req, res) => {
-//     try {
-//         const userId = req.params.userId;
-//         const courseId = req.params.courseId;
-
-//         const user = await User.findById(userId);
-//         if (!user) {
-//             return res.status(404).json({ error: 'User not found' });
-//         }
-
-//         const course = await Course.findById(courseId);
-//         if (!course) {
-//             return res.status(404).json({ error: 'Course not found' });
-//         }
-
-//         if (course.attendees.includes(userId)) {
-//           return res.status(409).json({ error: 'User is already present'});
-//         }
-
-//         course.attendees.push(user);
-
-//         await course.save();
-
-//         res.status(201).json({ message: 'User added to course successfully.', userId: user._id });
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).json({ message: 'Internal server error.' });
-//     }
-// });
-
   ///Ended Course System
 
   ///Notification system
@@ -668,6 +637,29 @@ app.post("/api/make-payment", async (req, res) => {
   ///End of notification system
 
   ///User profile system
+  
+  app.get('/api/get-user/', async (req,res) => {
+    try{
+      const user = await User.find({});
+      if(!user) {
+        return res.status(404).json( {message:'User not found '});
+      }
+     res.status(201).json({
+      user: user.map(user => ({
+        username : user.username,
+        email: user.email,
+        mobile: user.mobile,
+        password: user.password,
+        address: user.address
+      }))
+     })
+    }
+    catch(error) {
+      console.log(error)
+      res.status(500).json({ message: 'find the user'})
+    }
+  })
+
   app.get('/api/get-user/:userId', async (req,res) => {
     const {userId} = req.params;
     try{
@@ -691,7 +683,63 @@ app.post("/api/make-payment", async (req, res) => {
     }
   })
   
+  app.put('/api/update-user/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const { username, email, mobile, password, address } = req.body;
+  
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      // Update user properties
+      user.username = username || user.username;
+      user.email = email || user.email;
+      user.mobile = mobile || user.mobile;
+      user.password = password || user.password;
+      user.address = address || user.address;
+  
+      // Save the updated user
+      await user.save();
+  
+      res.status(200).json({
+        user: {
+          username: user.username,
+          email: user.email,
+          mobile: user.mobile,
+          password: user.password,
+          address: user.address,
+        },
+        message: 'User updated successfully',
+      });
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: 'Error updating user' });
+    }
+  });
+
+  app.delete('/api/delete-user/:userId', async (req, res) => {
+    const { userId } = req.params;
+  
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      // Delete the user
+      await user.remove();
+  
+      res.status(200).json({ message: 'User deleted successfully' });
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: 'Error deleting user' });
+    }
+  });
+
   //Contact us form
+
   app.post('/api/save-message', async (req, res) => {
     try {
       const { name, email, message } = req.body;
@@ -715,6 +763,26 @@ app.post("/api/make-payment", async (req, res) => {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.get('/api/get-message', async (req,res) => {
+    try {
+    const messages = await Message.find({});
+    if (!messages){
+      return res.status(404).json({ message: 'message not found'});
+    }
+    res.status(201).json({
+      messages: messages.map(messages => ({
+        id: messages._id,
+        name: messages.name,
+        email: messages.email,
+        message: messages.message
+      }))
+    })
+    }
+    catch {
+      return res.status(401).json({message:'meesages cannot be retrieved'})
     }
   });
 
